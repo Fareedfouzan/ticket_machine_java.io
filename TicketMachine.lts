@@ -1,0 +1,42 @@
+
+//Set of actions required for the process.
+set PRINT_ACTIONS = {acquirePrint[0..3][0..3], acquireRefill, print, refill, release, papercount[0..3], tonercount[0..3]}
+
+//Initialising the maximum number of paper to 3.
+const MAX_PAPER = 3
+
+//Initialising the maximum number of toner to 3.
+const MAX_TONER = 3
+
+//Initialising the maximum number of tickets to 3 because each passenger gets a ticket.
+const MAX_TICKETS_TO_PRINT = 3
+
+//Ticket Technician Process.
+TICKET_TECHNICIAN = (papercount[p: 0..3] -> if(p==0) then (acquireRefill -> refill -> release -> TICKET_TECHNICIAN) else (wait -> TICKET_TECHNICIAN)) + PRINT_ACTIONS.
+
+//Passenger Process.
+PASSENGER(TICKETS_TO_PRINT = MAX_TICKETS_TO_PRINT) = PASSENGER[TICKETS_TO_PRINT],
+PASSENGER[d: 1..TICKETS_TO_PRINT] = (acquirePrint[p: 0..3][t: 0..3] -> if (t >= d && p >= d) 
+   then (print -> release -> PASSENGER)
+   else (wait -> PASSENGER))+ PRINT_ACTIONS.
+
+
+//Toner Technican Process.
+TONER_TECHNICIAN =
+  (tonercount[t: 0..3] -> if(t==0) then (acquireRefill -> refill -> release -> TONER_TECHNICIAN) else (wait -> TONER_TECHNICIAN)) + PRINT_ACTIONS.
+
+
+//Ticket Machine Process. 
+TICKET_MACHINE(PAPER_COUNT = MAX_PAPER, TONER_COUNT = MAX_TONER) =
+  TICKET_MACHINE[PAPER_COUNT][TONER_COUNT],
+TICKET_MACHINE[p : 0..MAX_PAPER][t: 0..MAX_TONER] = 
+  if (p == 0 || t == 0)
+    then (acquireRefill -> refill -> release -> TICKET_MACHINE[MAX_PAPER][t] | acquireRefill -> refill -> release -> TICKET_MACHINE[p][MAX_TONER])
+  else (acquirePrint[p][t] -> print -> release -> papercount[p - 1] -> tonercount[t - 1] -> TICKET_MACHINE[p - 1][t - 1]).
+
+
+// Parallel Composition Process.
+||PURCHASE_TICKET_SYSTEM = 
+  (p : PASSENGER(1) || t : TICKET_TECHNICIAN || tt : TONER_TECHNICIAN || {p,t,tt} :: TICKET_MACHINE(3,3)).
+
+
